@@ -426,7 +426,12 @@ function Ring({ state, rotated }) {
   const broken = state === 'broken';
   const held = state === 'held';
   const slack = state === 'slack';
-  const stroke = held || broken ? '#0D1219' : slack ? '#CBD2D9' : '#98A1AB';
+  // Drawn in currentColor, not fixed hex. Windows high-contrast mode rewrites
+  // CSS colours but leaves SVG fill/stroke attributes alone, which used to
+  // leave the solid links near-black on a black background while the spine
+  // turned white. Under forced colours the three tones collapse into one and
+  // the geometry — solid, outline, split — carries the state on its own.
+  const tone = held || broken ? 'text-ink' : slack ? 'text-rule' : 'text-ink-3';
   const dx = apart ? 5 : 0;
   const dy = apart ? 4 : 0;
 
@@ -437,16 +442,16 @@ function Ring({ state, rotated }) {
       viewBox="0 0 28 30"
       fill="none"
       aria-hidden="true"
-      className="shrink-0"
+      className={`shrink-0 ${tone}`}
       style={{ overflow: 'visible', transform: rotated ? 'rotate(-90deg)' : undefined }}
     >
       {broken ? (
         <>
           <g className={MOTION} style={{ transform: `translate(${-dx}px, ${-dy}px)` }}>
-            <path d={TOP_ARC} stroke={stroke} strokeWidth={2.5} strokeLinecap="round" />
+            <path d={TOP_ARC} stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" />
           </g>
           <g className={MOTION} style={{ transform: `translate(${dx}px, ${dy}px)` }}>
-            <path d={BOTTOM_ARC} stroke={stroke} strokeWidth={2.5} strokeLinecap="round" />
+            <path d={BOTTOM_ARC} stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" />
           </g>
         </>
       ) : (
@@ -456,8 +461,8 @@ function Ring({ state, rotated }) {
           width={18}
           height={30}
           rx={9}
-          fill={held ? '#0D1219' : 'none'}
-          stroke={held ? 'none' : stroke}
+          fill={held ? 'currentColor' : 'none'}
+          stroke={held ? 'none' : 'currentColor'}
           strokeWidth={1.5}
         />
       )}
@@ -617,7 +622,7 @@ function ChainStrip({ path, answers, result, onRevisit }) {
   const brokenQ = result.brokenAt !== null ? qs[result.brokenAt] : null;
 
   return (
-    <div className="border-b border-rule bg-surface px-5 py-4 lg:hidden">
+    <div className="border-b border-rule bg-surface px-5 py-4 lg:hidden print:hidden">
       <div className="flex items-center justify-center">
         {qs.map((q, i) => {
           const connector = spineBelow(states[i - 1]);
@@ -897,7 +902,7 @@ function DecisionRecord({ record }) {
   return (
     <section className="mt-12 border-t border-rule pt-10">
       <h2 className="text-xl font-semibold tracking-tight text-ink">Decision record</h2>
-      <p className="mt-3 max-w-xl text-sm leading-relaxed text-ink-2">
+      <p className="mt-3 max-w-xl text-sm leading-relaxed text-ink-2 print:hidden">
         The answers, the verdict and the reasoning, with today&rsquo;s date. Keep it with
         the asset. If anyone asks later why the content was or was not labelled, this is
         the answer.
@@ -907,12 +912,12 @@ function DecisionRecord({ record }) {
         tabIndex={0}
         role="region"
         aria-label="Decision record"
-        className={`mt-6 max-h-80 overflow-auto rounded-sm border border-rule bg-surface p-5 font-mono text-xs leading-relaxed text-ink-2 ${FOCUS}`}
+        className={`mt-6 max-h-80 overflow-auto rounded-sm border border-rule bg-surface p-5 font-mono text-xs leading-relaxed text-ink-2 print:max-h-none print:overflow-visible print:whitespace-pre-wrap print:border-0 print:bg-transparent print:p-0 print:text-ink ${FOCUS}`}
       >
         {record}
       </pre>
 
-      <div className="mt-4 flex flex-wrap items-center gap-3">
+      <div className="mt-4 flex flex-wrap items-center gap-3 print:hidden">
         <PrimaryButton onClick={copy}>Copy decision record</PrimaryButton>
         <QuietButton onClick={download}>Download as .txt</QuietButton>
         <span aria-live="polite" className="font-mono text-xs text-ink-2">
@@ -957,7 +962,7 @@ function EmailCapture({ verdict }) {
   };
 
   return (
-    <section className="mt-12 border-t border-rule pt-10">
+    <section className="mt-12 border-t border-rule pt-10 print:hidden">
       <h2 className="text-lg font-semibold tracking-tight text-ink">
         One email when the rule takes effect
       </h2>
@@ -972,6 +977,7 @@ function EmailCapture({ verdict }) {
         <input
           id="a50-email"
           type="email"
+          required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
@@ -1017,8 +1023,13 @@ function Result({ path, answers, result, onRestart, onLabel, onBack }) {
 
   return (
     <div>
+      {/* Printing hides the chrome, so the page has to name itself. */}
+      <p className="hidden font-mono text-xs uppercase tracking-widest text-ink-2 print:block">
+        Article 50 Check &middot; EU AI Act, Art. 50(4)
+      </p>
+
       {/* The verdict is the only thing on the page allowed to use the accent. */}
-      <section className="border border-accent bg-accent-tint p-6 sm:p-8">
+      <section className="border border-accent bg-accent-tint p-6 sm:p-8 print:mt-4 print:border-2 print:p-4">
         <p className="font-mono text-xs uppercase tracking-widest text-accent">
           {verdict.kicker}
         </p>
@@ -1046,7 +1057,7 @@ function Result({ path, answers, result, onRestart, onLabel, onBack }) {
         </ul>
       </section>
 
-      <section className="mt-10">
+      <section className="mt-10 print:hidden">
         <label
           htmlFor="a50-ref"
           className="font-mono text-xs uppercase tracking-widest text-ink-3"
@@ -1069,7 +1080,7 @@ function Result({ path, answers, result, onRestart, onLabel, onBack }) {
       <DecisionRecord record={record} />
 
       {needsLabel && (
-        <section className="mt-12 border-t border-rule pt-10">
+        <section className="mt-12 border-t border-rule pt-10 print:hidden">
           <h2 className="text-lg font-semibold tracking-tight text-ink">Apply a label</h2>
           <p className="mt-3 max-w-xl text-sm leading-relaxed text-ink-2">
             Drop the image in, pick a badge, put it where it will be seen. The file stays
@@ -1083,11 +1094,11 @@ function Result({ path, answers, result, onRestart, onLabel, onBack }) {
 
       <EmailCapture verdict={result.verdict} />
 
-      <div className="mt-12 flex flex-wrap items-center gap-3 border-t border-rule pt-8">
+      <div className="mt-12 flex flex-wrap items-center gap-3 border-t border-rule pt-8 print:hidden">
         <QuietButton onClick={onBack}>Change my last answer</QuietButton>
         <QuietButton onClick={onRestart}>Check something else</QuietButton>
       </div>
-      <p className="mt-3 text-xs leading-relaxed text-ink-2">
+      <p className="mt-3 text-xs leading-relaxed text-ink-2 print:hidden">
         You can also select any criterion in the test to go back to it.
       </p>
     </div>
@@ -1126,11 +1137,14 @@ function LabelTool({ onBack }) {
   const [dragging, setDragging] = useState(false);
   const [over, setOver] = useState(false);
   const [error, setError] = useState('');
+  const [exporting, setExporting] = useState(false);
+  const [announce, setAnnounce] = useState('');
   const frameRef = useRef(null);
   const dragOffset = useRef({ x: 0, y: 0 });
 
   const badge = BADGE_ASSETS[badgeKey];
   const scale = BADGE_SCALES.find((x) => x.key === scaleKey).scale;
+  const megapixels = dims ? Math.round((dims.w * dims.h) / 100000) / 10 : 0;
 
   useEffect(() => () => { if (src) URL.revokeObjectURL(src); }, [src]);
 
@@ -1212,7 +1226,15 @@ function LabelTool({ onBack }) {
     const d = map[e.key];
     if (!d) return;
     e.preventDefault();
-    setPos((p) => clampPos({ x: p.x + d.x, y: p.y + d.y }));
+    setPos((p) => {
+      const next = clampPos({ x: p.x + d.x, y: p.y + d.y });
+      // Announced only for keyboard and snap moves. A live region updated on
+      // every pointermove would talk over itself for the whole drag.
+      setAnnounce(
+        `Badge ${Math.round(next.x * 100)} percent from the left, ${Math.round(next.y * 100)} percent from the top.`,
+      );
+      return next;
+    });
   };
 
   const toCorner = (corner) => {
@@ -1230,12 +1252,20 @@ function LabelTool({ onBack }) {
       br: { x: right, y: bottom },
     };
     setPos(clampPos(map[corner]));
+    setAnnounce(
+      `Badge moved to the ${{ tl: 'top left', tr: 'top right', bl: 'bottom left', br: 'bottom right' }[corner]}.`,
+    );
   };
 
   const download = async () => {
-    if (!src || !dims || !geometry) return;
+    if (!src || !dims || !geometry || exporting) return;
     setError('');
+    setExporting(true);
     try {
+      // Compositing a large canvas blocks the main thread for seconds. Give
+      // the button two frames to repaint as busy first, or the wait reads as
+      // a dead click.
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       const [photo, mark] = await Promise.all([
         loadImage(src),
         loadImage(badgeDataUrl(badge)),
@@ -1248,7 +1278,11 @@ function LabelTool({ onBack }) {
       ctx.drawImage(mark, pos.x * dims.w, pos.y * dims.h, geometry.w, geometry.h);
       const blob = await new Promise((res) => canvas.toBlob(res, 'image/png'));
       if (!blob) {
-        setError('The image could not be rendered.');
+        // Browsers cap canvas area, and Safari's cap is the low one. Say what
+        // actually went wrong rather than leaving them to guess.
+        setError(
+          `This image is too large for the browser to export (${megapixels} megapixels). Resize it and try again.`,
+        );
         return;
       }
       const base = (file?.name || 'image').replace(/\.[^.]+$/, '');
@@ -1262,6 +1296,8 @@ function LabelTool({ onBack }) {
       URL.revokeObjectURL(url);
     } catch {
       setError('The image could not be rendered.');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -1362,7 +1398,12 @@ function LabelTool({ onBack }) {
             ref={frameRef}
             className="relative mt-8 select-none overflow-hidden border border-rule bg-surface"
           >
-            <img src={src} alt="" className="block w-full" draggable={false} />
+            <img
+              src={src}
+              alt={`Preview of ${file?.name || 'the image'} with the disclosure badge placed on it`}
+              className="block w-full"
+              draggable={false}
+            />
             <button
               type="button"
               onPointerDown={startDrag}
@@ -1433,7 +1474,13 @@ function LabelTool({ onBack }) {
           </div>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <PrimaryButton onClick={download}>Download labelled image</PrimaryButton>
+            <PrimaryButton
+              onClick={download}
+              disabled={exporting}
+              className="disabled:opacity-60"
+            >
+              {exporting ? 'Rendering the image' : 'Download labelled image'}
+            </PrimaryButton>
             <QuietButton
               onClick={() => {
                 if (src) URL.revokeObjectURL(src);
@@ -1445,7 +1492,14 @@ function LabelTool({ onBack }) {
             >
               Use a different image
             </QuietButton>
+            <span aria-live="polite" className="font-mono text-xs text-ink-2">
+              {exporting ? `Compositing ${megapixels} megapixels` : ''}
+            </span>
           </div>
+
+          <p aria-live="polite" className="sr-only">
+            {announce}
+          </p>
         </>
       )}
 
@@ -1553,7 +1607,7 @@ export default function Article50Check() {
         Skip to content
       </a>
 
-      <header className="shrink-0 border-b border-rule bg-surface">
+      <header className="shrink-0 border-b border-rule bg-surface print:hidden">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-5 py-4">
           <button
             type="button"
@@ -1619,7 +1673,7 @@ export default function Article50Check() {
             />
             <div className="mx-auto max-w-5xl px-5 py-10 sm:py-14">
               <div className="lg:flex lg:gap-14">
-                <aside className="hidden w-56 shrink-0 lg:block">
+                <aside className="hidden w-56 shrink-0 lg:block print:hidden">
                   <div className="sticky top-10">
                     <ChainRail
                       path={path}

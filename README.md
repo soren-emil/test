@@ -70,6 +70,12 @@ an answer that is about to change.
   asks.
 - The label tool composites on a `<canvas>` in the browser. The image is never uploaded.
 
+## Printing
+
+The result screen is print-styled. The chrome, the email field and the buttons drop
+away; what is left is the verdict, the reasoning, the full decision record and the
+disclaimer — a one-piece document you can print or save as PDF and file against the job.
+
 ## What it does not claim
 
 This is decision support and a record, not compliance and not legal advice. It is based

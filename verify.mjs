@@ -207,6 +207,86 @@ console.log('\n--- badge scales with the image, not against it ---');
   await ctx.close();
 }
 
+console.log('\n--- print: the record is the deliverable ---');
+{
+  const { ctx, page } = await fresh();
+  for (const s of flows['result-full']) await click(page, s);
+  await page.waitForTimeout(400);
+  await page.emulateMedia({ media: 'print' });
+  await page.waitForTimeout(200);
+  const r = await page.evaluate(() => {
+    const shown = (sel) => {
+      const e = document.querySelector(sel);
+      return e ? e.offsetParent !== null || getComputedStyle(e).position === 'fixed' : false;
+    };
+    const pre = document.querySelector('pre');
+    return {
+      headerHidden: !shown('header'),
+      emailHidden: !shown('#a50-email'),
+      buttonsHidden: !shown('button'),
+      recordWhole: pre.scrollHeight <= pre.clientHeight + 2,
+      identityLine: !!shown('main p'),
+    };
+  });
+  const ok = r.headerHidden && r.emailHidden && r.buttonsHidden && r.recordWhole;
+  console.log(`  header/email/buttons hidden: ${r.headerHidden}/${r.emailHidden}/${r.buttonsHidden}`);
+  console.log(`  record prints unclipped    : ${r.recordWhole} ${ok ? 'PASS' : 'FAIL'}`);
+  await ctx.close();
+}
+
+console.log('\n--- forced colours and the export busy state ---');
+{
+  const ctx = await browser.newContext({
+    viewport: { width: 1280, height: 900 },
+    forcedColors: 'active',
+    colorScheme: 'dark',
+  });
+  const page = await ctx.newPage();
+  await page.goto(URL, { waitUntil: 'networkidle' });
+  await click(page, 'Check my content');
+  await click(page, 'Image, video or audio');
+  await click(page, 'Yes, AI made or changed it');
+  await page.waitForTimeout(250);
+  // A fixed hex here would leave the solid links invisible on a dark
+  // high-contrast background while the CSS spine turned white.
+  const fill = await page.evaluate(() => document.querySelector('aside svg rect')?.getAttribute('fill'));
+  console.log(`  chain draws in currentColor : ${fill} ${fill === 'currentColor' ? 'PASS' : 'FAIL'}`);
+  await ctx.close();
+}
+{
+  const { ctx, page } = await fresh();
+  const fsm = await import('fs');
+  const bytes = await page.evaluate(async () => {
+    const c = document.createElement('canvas');
+    c.width = 6000; c.height = 4000;
+    const x = c.getContext('2d'); x.fillStyle = '#9aa5b1'; x.fillRect(0, 0, 6000, 4000);
+    const bl = await new Promise((r) => c.toBlob(r, 'image/png'));
+    return Array.from(new Uint8Array(await bl.arrayBuffer()));
+  });
+  const f = '/tmp/a50-verify-big.png';
+  fsm.writeFileSync(f, Buffer.from(bytes));
+  await click(page, 'Label an image');
+  await page.setInputFiles('input[type=file]', f);
+  await page.waitForTimeout(600);
+  // Watch the button itself: a name-based locator stops matching the moment
+  // the label changes, which reads as "no busy state" when there is one.
+  await page.evaluate(() => {
+    window.__log = [];
+    const btn = [...document.querySelectorAll('button')].find((e) => e.textContent.includes('Download labelled'));
+    window.__btn = btn;
+    new MutationObserver(() => window.__log.push(btn.textContent.trim()))
+      .observe(btn, { childList: true, subtree: true, characterData: true, attributes: true });
+  });
+  const dl = page.waitForEvent('download');
+  await page.evaluate(() => window.__btn.click());
+  await dl;
+  const log = await page.evaluate(() => window.__log);
+  const busy = log.some((t) => t.includes('Rendering'));
+  console.log(`  export shows a busy state   : ${JSON.stringify(log)} ${busy ? 'PASS' : 'FAIL'}`);
+  fsm.unlinkSync(f);
+  await ctx.close();
+}
+
 console.log('\n--- heading order + landmarks ---');
 {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
