@@ -16,7 +16,7 @@ npm run dev
 | --- | --- |
 | `src/Article50Check.jsx` | The whole app. One self-contained React component. |
 | `tailwind.config.js` | The palette and typefaces. |
-| `verify.mjs` | Optional Playwright check: every leaf of the decision tree, plus overflow, focus, heading order and contrast sweeps. |
+| `verify.mjs` | Optional Playwright check: every leaf of the decision tree, step focus, revisiting an answer, badge scaling, plus overflow, focus-ring, heading-order and contrast sweeps. |
 
 Everything else is an unmodified Vite host so the component can run.
 
@@ -55,6 +55,10 @@ The signature element is the chain. Four criteria on one spine, all of which hav
 hold. A link that holds fills solid; a link that fails splits in two and the halves pull
 apart, severing the spine, and everything below it hangs slack. No colour does that work,
 which is what keeps the accent free for the verdict.
+
+The chain is also the navigation. Any criterion you have already answered is a button
+back into that question — everything downstream is discarded, because it was decided on
+an answer that is about to change.
 
 ## Constraints it is built under
 

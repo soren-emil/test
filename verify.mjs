@@ -102,26 +102,108 @@ for (const w of widths) {
 }
 console.log(bad === 0 ? '  none at any width' : `  ${bad} overflowing screens`);
 
-console.log('\n--- focus visibility (every interactive element gets a ring) ---');
-{
-  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+console.log('\n--- focus visibility (every rendered interactive element gets a ring) ---');
+for (const w of [1280, 390]) {
+  const ctx = await browser.newContext({ viewport: { width: w, height: 900 } });
   const page = await ctx.newPage();
   await page.goto(URL, { waitUntil: 'domcontentloaded' });
   for (const s of flows['result-full']) await click(page, s);
   await page.waitForTimeout(300);
   const res = await page.evaluate(() => {
-    const els = [...document.querySelectorAll('button, a, input, [tabindex]:not([tabindex="-1"])')];
-    const out = [];
-    for (const el of els) {
+    const all = [...document.querySelectorAll('button, a, input, [tabindex]:not([tabindex="-1"])')];
+    // Only judge what is actually rendered. The responsive chain (rail vs
+    // strip) keeps both variants in the DOM, and a display:none element
+    // cannot take focus, so it would report a missing ring forever.
+    const rendered = all.filter((e) => e.offsetParent !== null || getComputedStyle(e).position === 'fixed');
+    const missing = [];
+    for (const el of rendered) {
       el.focus();
       const cs = getComputedStyle(el);
-      const ring = cs.boxShadow !== 'none' || cs.outlineStyle !== 'none';
-      if (!ring) out.push(el.tagName.toLowerCase() + ': ' + (el.textContent || el.type || '').trim().slice(0, 40));
+      if (cs.boxShadow === 'none' && cs.outlineStyle === 'none') {
+        missing.push((el.getAttribute('aria-label') || el.textContent || el.type || '').trim().slice(0, 44));
+      }
     }
-    return { total: els.length, missing: out };
+    return { total: all.length, rendered: rendered.length, missing };
   });
-  console.log(`  ${res.total} focusable, ${res.missing.length} without a visible ring`);
+  console.log(`  ${w}px: ${res.rendered} rendered of ${res.total}, ${res.missing.length} without a visible ring`);
   res.missing.forEach((m) => console.log('    MISSING ' + m));
+  await ctx.close();
+}
+
+console.log('\n--- step focus and revisiting an answer ---');
+{
+  const { ctx, page } = await fresh();
+  const at = () => page.evaluate(() => {
+    const a = document.activeElement;
+    return a === document.body ? 'BODY (focus lost)' : a.tagName;
+  });
+  await click(page, 'Check my content');
+  await click(page, 'Image, video or audio');
+  await click(page, 'Yes, AI made or changed it');
+  await page.waitForTimeout(250);
+  // Focus must land on the new heading, not linger on the reused button.
+  console.log(`  focus after answering    : ${await at()} ${(await at()) === 'H1' ? 'PASS' : 'FAIL'}`);
+
+  for (const l of ['Yes, it could be real', 'Yes, it looks like the subject', 'Yes, it could pass as real', 'No, it is advertising or promotional']) {
+    await click(page, l);
+    await page.waitForTimeout(120);
+  }
+  await page.waitForTimeout(400);
+  console.log(`  focus on the verdict     : ${await at()} ${(await at()) === 'H1' ? 'PASS' : 'FAIL'}`);
+
+  await page.getByRole('button', { name: /Change your answer to criterion 02/ }).click();
+  await page.waitForTimeout(300);
+  const left = await page.getByRole('button', { name: /Change your answer to criterion/ }).count();
+  console.log(`  revisit 02 discards 03-05: ${left} link(s) still answered ${left === 1 ? 'PASS' : 'FAIL'}`);
+  await click(page, 'No, it is obviously impossible');
+  await page.waitForTimeout(600);
+  const v = (await page.locator('h1').first().innerText()).trim();
+  console.log(`  re-answered verdict      : ${v} ${v === 'No disclosure required' ? 'PASS' : 'FAIL'}`);
+  await ctx.close();
+}
+
+{
+  const { ctx, page } = await fresh(390, 844);
+  await click(page, 'Check my content');
+  await click(page, 'Image, video or audio');
+  await click(page, 'Yes, AI made or changed it');
+  await page.waitForTimeout(250);
+  const box = await page.getByRole('button', { name: /Change your answer to criterion 01/ }).boundingBox();
+  const ok = box.width >= 44 && box.height >= 44;
+  console.log(`  mobile ring hit area     : ${Math.round(box.width)}x${Math.round(box.height)} ${ok ? 'PASS (>=44px)' : 'FAIL'}`);
+  await ctx.close();
+}
+
+console.log('\n--- badge scales with the image, not against it ---');
+{
+  const { ctx, page } = await fresh();
+  const fsm = await import('fs');
+  await click(page, 'Label an image');
+  for (const [w, h] of [[400, 300], [8000, 5000]]) {
+    const bytes = await page.evaluate(async ([w, h]) => {
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const x = c.getContext('2d');
+      x.fillStyle = '#b8c2cc'; x.fillRect(0, 0, w, h);
+      const bl = await new Promise((r) => c.toBlob(r, 'image/png'));
+      return Array.from(new Uint8Array(await bl.arrayBuffer()));
+    }, [w, h]);
+    const f = `/tmp/a50-scale-${w}.png`;
+    fsm.writeFileSync(f, Buffer.from(bytes));
+    await page.setInputFiles('input[type=file]', f);
+    await page.waitForTimeout(400);
+    const out = [];
+    for (const sz of ['Small', 'Medium', 'Large']) {
+      await click(page, sz);
+      await page.waitForTimeout(120);
+      out.push(`${sz}=${await page.getByRole('button', { name: /Badge position/ }).evaluate((el) => el.style.width)}`);
+    }
+    console.log(`  ${String(w).padStart(4)}px wide image  : ${out.join('  ')}`);
+    fsm.unlinkSync(f);
+    const again = page.getByRole('button', { name: 'Use a different image' });
+    if (await again.count()) await again.click();
+    await page.waitForTimeout(200);
+  }
   await ctx.close();
 }
 
