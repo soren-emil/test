@@ -10,6 +10,16 @@ npm install
 npm run dev
 ```
 
+## Demo
+
+Hosted: <https://claude.ai/code/artifact/17d8f63e-ff8a-4940-b999-216f3ad1700a>
+(private by default — share it from the page's share menu).
+
+`npm run build:demo` inlines the whole app into a single self-contained
+`demo/article-50-check.html` — no external requests, so it can be dropped on any
+static host, attached to an email, or opened from a file share. That file is what
+the hosted demo serves.
+
 ## What is where
 
 | Path | What it is |
