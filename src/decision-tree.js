@@ -19,16 +19,17 @@
  * an outcome or a reasoning string changes in a way that could alter a verdict.
  * -------------------------------------------------------------------------- */
 const CRITERIA_VERSION = '1.0';
-const CRITERIA_DATE = '28 July 2026';
+const CRITERIA_DATE = '6 August 2026';
 
 const CRITERIA_CHANGELOG = [
   {
     version: '1.0',
-    date: '28 July 2026',
+    date: '6 August 2026',
     note:
       'First source-checked version. Criteria derived from Article 3(60) and ' +
       'Article 50(4)-(5) of Regulation (EU) 2024/1689, read with the European ' +
-      'Commission guidelines on transparency of AI-generated content.',
+      'Commission guidelines on transparency of AI-generated content. Written ' +
+      'after Article 50(4) came into force on 2 August 2026.',
   },
 ];
 
